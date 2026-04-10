@@ -1,0 +1,75 @@
+/* ============================================================
+   FundFlowHub — Brand Design Tokens
+   ============================================================ */
+
+:root {
+  /* Primary Palette */
+  --ffh-navy:         #1B2F5B;   /* Deep trust — backgrounds, headers */
+  --ffh-navy-dark:    #0D1B2A;   /* Darkest navy — dark mode backgrounds */
+  --ffh-navy-mid:     #243B6E;   /* Mid navy — cards, sidebars */
+
+  /* Accent Palette */
+  --ffh-teal:         #00BFA5;   /* Flow — CTAs, highlights, success states */
+  --ffh-teal-light:   #4DD9C8;   /* Hover / lighter teal */
+  --ffh-blue:         #0077B6;   /* Fund — links, active states */
+  --ffh-blue-light:   #4FC3F7;   /* Lighter blue — icons, badges */
+
+  /* Neutral Palette */
+  --ffh-white:        #FFFFFF;
+  --ffh-off-white:    #F0F4FF;   /* Page backgrounds */
+  --ffh-grey-light:   #E8EDF5;   /* Borders, dividers */
+  --ffh-grey-mid:     #9AAABF;   /* Placeholder text, muted */
+  --ffh-grey-dark:    #3D4F6B;   /* Secondary text */
+
+  /* Semantic Colours */
+  --ffh-success:      #00BFA5;
+  --ffh-warning:      #F59E0B;
+  --ffh-danger:       #EF4444;
+  --ffh-info:         #4FC3F7;
+
+  /* Typography */
+  --ffh-font-sans:    'Inter', 'Segoe UI', Arial, sans-serif;
+  --ffh-font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  --ffh-text-xs:      0.75rem;
+  --ffh-text-sm:      0.875rem;
+  --ffh-text-base:    1rem;
+  --ffh-text-lg:      1.125rem;
+  --ffh-text-xl:      1.25rem;
+  --ffh-text-2xl:     1.5rem;
+  --ffh-text-3xl:     1.875rem;
+  --ffh-text-4xl:     2.25rem;
+
+  --ffh-weight-normal:  400;
+  --ffh-weight-medium:  500;
+  --ffh-weight-semibold:600;
+  --ffh-weight-bold:    700;
+
+  /* Spacing */
+  --ffh-space-1:  0.25rem;
+  --ffh-space-2:  0.5rem;
+  --ffh-space-3:  0.75rem;
+  --ffh-space-4:  1rem;
+  --ffh-space-6:  1.5rem;
+  --ffh-space-8:  2rem;
+  --ffh-space-12: 3rem;
+  --ffh-space-16: 4rem;
+
+  /* Border Radius */
+  --ffh-radius-sm:  4px;
+  --ffh-radius-md:  8px;
+  --ffh-radius-lg:  12px;
+  --ffh-radius-xl:  16px;
+  --ffh-radius-full: 9999px;
+
+  /* Shadows */
+  --ffh-shadow-sm:  0 1px 3px rgba(27, 47, 91, 0.12);
+  --ffh-shadow-md:  0 4px 12px rgba(27, 47, 91, 0.15);
+  --ffh-shadow-lg:  0 8px 24px rgba(27, 47, 91, 0.20);
+  --ffh-shadow-card: 0 2px 8px rgba(27, 47, 91, 0.10);
+
+  /* Gradients */
+  --ffh-gradient-brand:    linear-gradient(135deg, #00BFA5 0%, #0077B6 100%);
+  --ffh-gradient-dark:     linear-gradient(135deg, #0D1B2A 0%, #1B2F5B 100%);
+  --ffh-gradient-accent:   linear-gradient(90deg, #0077B6 0%, #00BFA5 100%);
+}
