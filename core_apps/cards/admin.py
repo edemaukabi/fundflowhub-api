@@ -21,11 +21,11 @@ class VirtualCardAdmin(admin.ModelAdmin):
         "user__last_name",
         "bank_account__account_number",
     ]
-    readonly_fields = ["card_number", "cvv", "created_at", "updated_at"]
+    readonly_fields = ["card_number", "computed_cvv", "created_at", "updated_at"]
     fieldsets = (
         (
             _("Card Info"),
-            {"fields": ("user", "bank_account", "card_number", "expiry_date", "cvv")},
+            {"fields": ("user", "bank_account", "card_number", "expiry_date", "computed_cvv")},
         ),
         (_("Card Details"), {"fields": ("balance", "status")}),
         (
@@ -47,8 +47,13 @@ class VirtualCardAdmin(admin.ModelAdmin):
 
     bank_account_number.admin_order_field = "bank_account__account_number"
 
+    def computed_cvv(self, obj):
+        return obj.cvv  # computed property — never stored in DB
+
+    computed_cvv.short_description = _("CVV (computed)")
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user", "bank_account")
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request, obj=None):  # noqa: ARG002
         return False

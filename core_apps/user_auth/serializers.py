@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from djoser.serializers import (
     UserCreateSerializer as DjoserUserCreateSerializer,
 )
@@ -21,5 +22,8 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
         ]
 
     def create(self, validated_data):
+        validated_data["security_answer"] = make_password(
+            validated_data["security_answer"]
+        )
         user = User.objects.create_user(**validated_data)
         return user

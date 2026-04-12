@@ -10,7 +10,7 @@ down:
 down-v:
 	docker compose -f local.yml down -v
 
-banker-config:
+config:
 	docker compose -f local.yml config
 
 makemigrations:
@@ -29,7 +29,10 @@ flush:
 	docker compose -f local.yml run --rm api python manage.py flush
 
 network-inspect:
-	docker network inspect banker_local_nw
+	docker network inspect fundflowhub_local_nw
 
-banker-db:
-	docker compose -f local.yml exec postgres psql --username=alphaogilo --dbname=banker
+shell:
+	docker compose -f local.yml run --rm api python manage.py shell
+
+db:
+	docker compose -f local.yml exec postgres psql --username=fundflowhub_user --dbname=fundflowhub

@@ -19,7 +19,7 @@ services:
             - rabbitmq
         command: /start.sh
         networks:
-            - banker_local_nw
+            - fundflowhub_local_nw
     
     postgres:
         build:
@@ -28,12 +28,12 @@ services:
         ports:
             - "5432:5432"
         volumes:
-            - banker_local_db:/var/lib/postgresql/data
+            - fundflowhub_local_db:/var/lib/postgresql/data
             - ./backups:/backups
         env_file:
             - ./.envs/.env.local
         networks:
-            - banker_local_nw
+            - fundflowhub_local_nw
     
     mailpit:
         image: docker.io/axllent/mailpit:v1.20.3
@@ -41,20 +41,20 @@ services:
             - "8025:8025"
             - "1025:1025"
         volumes:
-            - banker_mailpit_db:/data
+            - fundflowhub_mailpit_db:/data
         environment:
             MP_MAX_MESSAGES: 5000
             MP_DATA_FILE: /data/mailpit.db
             MP_SMTP_AUTH_ACCEPT_ANY: 1
             MP_SMTP_AUTH_ALLOW_INSECURE: 1
         networks:
-            - banker_local_nw
+            - fundflowhub_local_nw
     
     redis:
         image: redis:7.0-alpine3.19
         command: redis-server --appendonly yes
         networks:
-            - banker_local_nw
+            - fundflowhub_local_nw
     
     rabbitmq:
         image: rabbitmq:3-management
@@ -65,7 +65,7 @@ services:
             - rabbitmq_data:/var/lib/rabbitmq
             - rabbitmq_log:/var/log/rabbitmq
         networks:
-            - banker_local_nw
+            - fundflowhub_local_nw
     
     celeryworker:
         <<: *api
@@ -91,7 +91,7 @@ services:
             - postgres
             - rabbitmq
         networks:
-            - banker_local_nw
+            - fundflowhub_local_nw
     
     nginx:
         build:
@@ -106,15 +106,15 @@ services:
         depends_on:
             - api
         networks:
-            - banker_local_nw
+            - fundflowhub_local_nw
 
 networks:
-    banker_local_nw:
+    fundflowhub_local_nw:
         external: true
 
 volumes:
-    banker_local_db:
-    banker_mailpit_db:
+    fundflowhub_local_db:
+    fundflowhub_mailpit_db:
     logs_store:
     rabbitmq_data:
     rabbitmq_log:

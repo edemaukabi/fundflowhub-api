@@ -1,6 +1,6 @@
 from pathlib import Path
 from dotenv import load_dotenv
-from os import getenv, path
+from os import getenv
 from loguru import logger
 from datetime import timedelta, date
 import cloudinary
@@ -10,10 +10,8 @@ BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 
 APPS_DIR = BASE_DIR / "core_apps"
 
-local_env_file = path.join(BASE_DIR, ".envs", ".env.production")
-
-if path.isfile(local_env_file):
-    load_dotenv(local_env_file)
+# Env files are loaded by each settings module (local.py / production.py).
+# base.py intentionally loads nothing — it is never used directly.
 
 # Application definition
 
@@ -30,6 +28,7 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "corsheaders",
     "django_countries",
     "phonenumber_field",
     "drf_spectacular",
@@ -52,6 +51,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

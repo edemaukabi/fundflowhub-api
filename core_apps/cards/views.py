@@ -8,7 +8,7 @@ from core_apps.accounts.models import Transaction
 from core_apps.common.renderers import GenericJSONRenderer
 from .emails import send_virtual_card_topup_email
 from .models import VirtualCard
-from .serializers import VirtualCardCreateSerializer, VirtualCardSerializer
+from .serializers import VirtualCardCreateSerializer, VirtualCardRevealCVVSerializer, VirtualCardSerializer
 
 
 class VirtualCardListCreateAPIView(generics.ListCreateAPIView):
@@ -162,3 +162,22 @@ class VirtualCardTopUpAPIView(generics.UpdateAPIView):
         )
 
         return Response(VirtualCardSerializer(virtual_card).data)
+
+
+class VirtualCardRevealCVVView(generics.RetrieveAPIView):
+    """Returns the computed CVV for the authenticated user's card.
+    Called only when user explicitly clicks 'Reveal CVV' in the frontend.
+    CVV is never stored — computed on-demand from HMAC."""
+
+    serializer_class = VirtualCardRevealCVVSerializer
+    renderer_classes = [GenericJSONRenderer]
+    object_label = "cvv"
+
+    def get_queryset(self):
+        return VirtualCard.objects.filter(user=self.request.user)
+
+    def get_object(self):
+        obj = super().get_object()
+        if obj.user != self.request.user:
+            raise PermissionDenied("This card does not belong to you.")
+        return obj

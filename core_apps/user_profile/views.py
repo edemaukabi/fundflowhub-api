@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.request import Request
 
 from core_apps.common.models import ContentView
-from core_apps.common.permissions import IsBranchManager
+from core_apps.common.permissions import IsAccountExecutiveOrBranchManager
 from core_apps.accounts.utils import create_bank_account
 from core_apps.accounts.models import BankAccount
 from core_apps.common.renderers import GenericJSONRenderer
@@ -33,7 +33,7 @@ class ProfileListAPIView(generics.ListAPIView):
     renderer_classes = [GenericJSONRenderer]
     pagination_class = StandardResultsSetPagination
     object_label = "profiles"
-    permission_classes = [IsBranchManager]
+    permission_classes = [IsAccountExecutiveOrBranchManager]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ["user__first_name", "user__last_name", "user__id_no"]
     filterset_fields = ["user__first_name", "user__last_name", "user__id_no"]

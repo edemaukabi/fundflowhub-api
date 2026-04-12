@@ -1,11 +1,14 @@
+import uuid
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from loguru import logger
 
 from core_apps.common.models import TimeStampedModel
-from decimal import Decimal, ROUND_HALF_UP
-from loguru import logger
 
 User = get_user_model()
 
@@ -185,3 +188,43 @@ class Transaction(TimeStampedModel):
     class Meta:
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["created_at"])]
+
+
+class PendingTransaction(TimeStampedModel):
+    """Stores intermediate state for multi-step flows (transfer, withdrawal).
+    Replaces Django sessions — portable across containers, auditable, cleaned up by Celery Beat."""
+
+    class FlowType(models.TextChoices):
+        WITHDRAWAL = ("withdrawal", _("Withdrawal"))
+        TRANSFER = ("transfer", _("Transfer"))
+
+    token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="pending_transactions",
+    )
+    flow_type = models.CharField(max_length=20, choices=FlowType.choices)
+    payload = models.JSONField()
+    expires_at = models.DateTimeField()
+
+    def is_expired(self) -> bool:
+        return timezone.now() > self.expires_at
+
+    @classmethod
+    def create_for_user(
+        cls, user, flow_type: str, payload: dict
+    ) -> "PendingTransaction":
+        return cls.objects.create(
+            user=user,
+            flow_type=flow_type,
+            payload=payload,
+            expires_at=timezone.now() + timezone.timedelta(minutes=15),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.flow_type} pending for {self.user.full_name}"
+
+    class Meta:
+        verbose_name = _("Pending Transaction")
+        verbose_name_plural = _("Pending Transactions")

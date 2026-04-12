@@ -3,6 +3,7 @@ from .views import (
     AccountVerificationView,
     DepositView,
     InitiateWithdrawalView,
+    PendingKYCListView,
     VerifyUsernameAndWithdrawAPIView,
     InitiateTransferView,
     VerifyOTPView,
@@ -37,6 +38,7 @@ urlpatterns = [
         name="verify_security_question",
     ),
     path("transfer/verify-otp/", VerifyOTPView.as_view(), name="verify_otp"),
+    path("pending-kyc/", PendingKYCListView.as_view(), name="pending_kyc"),
     path("transactions/", TransactionListAPIView.as_view(), name="transaction_list"),
     path("transactions/pdf/", TransactionPDFView.as_view(), name="transaction_pdf"),
 ]

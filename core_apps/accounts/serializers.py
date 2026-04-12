@@ -1,7 +1,51 @@
+from decimal import Decimal
+
+from django.contrib.auth.hashers import check_password
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
+
+from django.contrib.auth import get_user_model
+
 from .models import BankAccount, Transaction
-from decimal import Decimal
+
+User = get_user_model()
+
+
+class PendingKYCSerializer(serializers.ModelSerializer):
+    """Read-only summary for accounts awaiting KYC review."""
+
+    full_name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BankAccount
+        fields = [
+            "id",
+            "account_number",
+            "account_type",
+            "currency",
+            "full_name",
+            "email",
+            "photo_url",
+            "kyc_submitted",
+            "kyc_verified",
+            "fully_activated",
+            "account_status",
+            "created_at",
+        ]
+
+    def get_full_name(self, obj: BankAccount) -> str:
+        return obj.user.full_name
+
+    def get_email(self, obj: BankAccount) -> str:
+        return obj.user.email
+
+    def get_photo_url(self, obj: BankAccount) -> str | None:
+        try:
+            return obj.user.profile.photo_url
+        except AttributeError:
+            return None
 
 
 class AccountVerificationSerializer(serializers.ModelSerializer):
@@ -192,7 +236,7 @@ class SecurityQuestionSerializer(serializers.Serializer):
 
     def validate(self, data: dict) -> dict:
         user = self.context["request"].user
-        if data["security_answer"] != user.security_answer:
+        if not check_password(data["security_answer"], user.security_answer):
             raise serializers.ValidationError("Incorrect security answer.")
         return data
 

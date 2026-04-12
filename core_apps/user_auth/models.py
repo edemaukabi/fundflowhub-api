@@ -42,7 +42,7 @@ class User(AbstractUser):
         max_length=30,
         choices=SecurityQuestions.choices,
     )
-    security_answer = models.CharField(_("Security Answer"), max_length=30)
+    security_answer = models.CharField(_("Security Answer"), max_length=128)
     email = models.EmailField(_("Email"), unique=True, db_index=True)
     first_name = models.CharField(_("First Name"), max_length=30)
     middle_name = models.CharField(
@@ -61,6 +61,11 @@ class User(AbstractUser):
         max_length=20,
         choices=RoleChoices.choices,
         default=RoleChoices.CUSTOMER,
+    )
+    is_test_account = models.BooleanField(
+        _("Test Account"),
+        default=False,
+        help_text=_("When True, this user belongs to the demo/test environment."),
     )
     failed_login_attempts = models.PositiveSmallIntegerField(default=0)
     last_failed_login = models.DateTimeField(null=True, blank=True)

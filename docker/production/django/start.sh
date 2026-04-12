@@ -6,6 +6,7 @@ set -o pipefail
 
 set -o nounset
 
+python /app/manage.py migrate django_celery_beat --fake --no-input || true
 python /app/manage.py migrate --no-input
 python /app/manage.py collectstatic --no-input
 

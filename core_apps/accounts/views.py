@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import generics, status, serializers
 from rest_framework.request import Request
 from rest_framework.response import Response
-from core_apps.common.permissions import IsAccountExecutive, IsTeller
+from core_apps.common.permissions import IsAccountExecutiveOrBranchManager, IsTeller
 from core_apps.common.renderers import GenericJSONRenderer
 from .emails import (
     send_full_activation_email,
@@ -14,12 +14,13 @@ from .emails import (
     send_transfer_email,
     send_transfer_otp_email,
 )
-from .models import BankAccount, Transaction
+from .models import BankAccount, PendingTransaction, Transaction
 from decimal import Decimal
 from .serializers import (
     AccountVerificationSerializer,
     CustomerInfoSerializer,
     DepositSerializer,
+    PendingKYCSerializer,
     TransactionSerializer,
     UsernameVerificationSerializer,
     SecurityQuestionSerializer,
@@ -43,7 +44,7 @@ class AccountVerificationView(generics.UpdateAPIView):
     serializer_class = AccountVerificationSerializer
     renderer_classes = [GenericJSONRenderer]
     object_label = "verification"
-    permission_classes = [IsAccountExecutive]
+    permission_classes = [IsAccountExecutiveOrBranchManager]
 
     def update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         instance = self.get_object()
@@ -219,17 +220,18 @@ class InitiateWithdrawalView(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        request.session["withdrawal_data"] = {
-            "account_number": account_number,
-            "amount": str(amount),
-        }
-        logger.info("Withdrawal data stored in session")
+        pending = PendingTransaction.create_for_user(
+            user=request.user,
+            flow_type=PendingTransaction.FlowType.WITHDRAWAL,
+            payload={"account_number": account_number, "amount": str(amount)},
+        )
+        logger.info(f"Withdrawal initiated for account {account_number}, token {pending.token}")
 
         return Response(
             {
-                "message": "Withdrawal Initiated. Please verify your username to complete the "
-                "withdrawal",
-                "next_step": "Verify your username to complete the withdrawal",
+                "message": "Withdrawal initiated. Please verify your username to complete the withdrawal.",
+                "next_step": "verify_username",
+                "token": str(pending.token),
             },
             status=status.HTTP_200_OK,
         )
@@ -247,16 +249,32 @@ class VerifyUsernameAndWithdrawAPIView(generics.CreateAPIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        withdrawal_data = request.session.get("withdrawal_data")
-        if not withdrawal_data:
+        token = request.data.get("token")
+        if not token:
             return Response(
-                {
-                    "error": "No pending withdrawal found. Please initiate a withdrawal first"
-                },
+                {"error": "Token is required. Please initiate a withdrawal first."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        account_number = withdrawal_data["account_number"]
-        amount = Decimal(withdrawal_data["amount"])
+        try:
+            pending = PendingTransaction.objects.get(
+                token=token,
+                user=request.user,
+                flow_type=PendingTransaction.FlowType.WITHDRAWAL,
+            )
+        except PendingTransaction.DoesNotExist:
+            return Response(
+                {"error": "No pending withdrawal found. Please initiate a withdrawal first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if pending.is_expired():
+            pending.delete()
+            return Response(
+                {"error": "Withdrawal session expired. Please start again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        account_number = pending.payload["account_number"]
+        amount = Decimal(pending.payload["amount"])
 
         try:
             account = BankAccount.objects.get(
@@ -284,6 +302,7 @@ class VerifyUsernameAndWithdrawAPIView(generics.CreateAPIView):
             transaction_type=Transaction.TransactionType.WITHDRAWAL,
             status=Transaction.TransactionStatus.COMPLETED,
         )
+        pending.delete()
         logger.info(f"Withdrawal of {amount} made from account {account_number}")
 
         send_withdrawal_email(
@@ -294,8 +313,6 @@ class VerifyUsernameAndWithdrawAPIView(generics.CreateAPIView):
             new_balance=account.account_balance,
             account_number=account.account_number,
         )
-
-        del request.session["withdrawal_data"]
 
         return Response(
             {
@@ -342,16 +359,25 @@ class InitiateTransferView(generics.CreateAPIView):
         serializer = self.get_serializer(data=data)
 
         if serializer.is_valid():
-            request.session["transfer_data"] = {
-                "sender_account": sender_account_number,
-                "receiver_account": receiver_account_number,
-                "amount": str(serializer.validated_data["amount"]),
-                "description": serializer.validated_data.get("description", ""),
-            }
+            pending = PendingTransaction.create_for_user(
+                user=request.user,
+                flow_type=PendingTransaction.FlowType.TRANSFER,
+                payload={
+                    "sender_account": sender_account_number,
+                    "receiver_account": receiver_account_number,
+                    "amount": str(serializer.validated_data["amount"]),
+                    "description": serializer.validated_data.get("description", ""),
+                },
+            )
+            logger.info(
+                f"Transfer initiated from {sender_account_number} to "
+                f"{receiver_account_number}, token {pending.token}"
+            )
             return Response(
                 {
-                    "message": "Please answer your security question to proceed with the transfer",
-                    "next_step": "verify security question",
+                    "message": "Please answer your security question to proceed with the transfer.",
+                    "next_step": "verify_security_question",
+                    "token": str(pending.token),
                 },
                 status=status.HTTP_200_OK,
             )
@@ -364,6 +390,30 @@ class VerifySecurityQuestionView(generics.CreateAPIView):
     object_label = "verification_answer"
 
     def create(self, request, *args, **kwargs):
+        token = request.data.get("token")
+        if not token:
+            return Response(
+                {"error": "Token is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            pending = PendingTransaction.objects.get(
+                token=token,
+                user=request.user,
+                flow_type=PendingTransaction.FlowType.TRANSFER,
+            )
+        except PendingTransaction.DoesNotExist:
+            return Response(
+                {"error": "No pending transfer found. Please initiate a transfer first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if pending.is_expired():
+            pending.delete()
+            return Response(
+                {"error": "Transfer session expired. Please start again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = self.get_serializer(
             data=request.data, context={"request": request}
         )
@@ -373,8 +423,9 @@ class VerifySecurityQuestionView(generics.CreateAPIView):
             send_transfer_otp_email(request.user.email, otp)
             return Response(
                 {
-                    "message": "Security question verified. An OTP has been sent to your email",
-                    "next_step": "verify otp",
+                    "message": "Security question verified. An OTP has been sent to your email.",
+                    "next_step": "verify_otp",
+                    "token": token,
                 },
                 status=status.HTTP_200_OK,
             )
@@ -394,19 +445,39 @@ class VerifyOTPView(generics.CreateAPIView):
             return self.process_transfer(request)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @transaction.atomic
     def process_transfer(self, request) -> Response:
-        transfer_data = request.session.get("transfer_data")
-        if not transfer_data:
+        token = request.data.get("token")
+        if not token:
+            return Response(
+                {"error": "Token is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            pending = PendingTransaction.objects.select_for_update().get(
+                token=token,
+                user=request.user,
+                flow_type=PendingTransaction.FlowType.TRANSFER,
+            )
+        except PendingTransaction.DoesNotExist:
             return Response(
                 {"error": "Transfer data not found. Please start the process again."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        try:
-            sender_account = BankAccount.objects.get(
-                account_number=transfer_data["sender_account"]
+        if pending.is_expired():
+            pending.delete()
+            return Response(
+                {"error": "Transfer session expired. Please start again."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-            receiver_account = BankAccount.objects.get(
-                account_number=transfer_data["receiver_account"]
+
+        payload = pending.payload
+        try:
+            sender_account = BankAccount.objects.select_for_update().get(
+                account_number=payload["sender_account"]
+            )
+            receiver_account = BankAccount.objects.select_for_update().get(
+                account_number=payload["receiver_account"]
             )
         except BankAccount.DoesNotExist:
             return Response(
@@ -414,7 +485,7 @@ class VerifyOTPView(generics.CreateAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        amount = Decimal(transfer_data["amount"])
+        amount = Decimal(payload["amount"])
 
         if sender_account.account_balance < amount:
             return Response(
@@ -434,12 +505,11 @@ class VerifyOTPView(generics.CreateAPIView):
             receiver=receiver_account.user,
             receiver_account=receiver_account,
             amount=amount,
-            description=transfer_data.get("description", ""),
+            description=payload.get("description", ""),
             transaction_type=Transaction.TransactionType.TRANSFER,
             status=Transaction.TransactionStatus.COMPLETED,
         )
-
-        del request.session["transfer_data"]
+        pending.delete()
 
         send_transfer_email(
             sender_name=sender_account.user.full_name,
@@ -463,6 +533,22 @@ class VerifyOTPView(generics.CreateAPIView):
             TransactionSerializer(transfer_transaction).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class PendingKYCListView(generics.ListAPIView):
+    """Lists bank accounts with KYC submitted but not yet verified.
+    Accessible by Account Executives and Branch Managers."""
+
+    serializer_class = PendingKYCSerializer
+    renderer_classes = [GenericJSONRenderer]
+    object_label = "pending_kyc"
+    permission_classes = [IsAccountExecutiveOrBranchManager]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        return BankAccount.objects.filter(
+            kyc_submitted=True, kyc_verified=False
+        ).select_related("user", "user__profile").order_by("created_at")
 
 
 class TransactionListAPIView(generics.ListAPIView):
