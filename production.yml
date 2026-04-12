@@ -1,22 +1,25 @@
 services:
-    api: &api
+    base: &base
         build:
             context: .
             dockerfile: ./docker/production/django/Dockerfile
         volumes:
             - ./staticfiles:/app/staticfiles
             - app_logs:/app/logs
-        ports:
-            - "8001:8000"
         env_file:
             - ./.envs/.env.production
         depends_on:
             - postgres
             - redis
             - rabbitmq
-        command: /start.sh
         networks:
             - fundflowhub_prod_nw
+
+    api:
+        <<: *base
+        ports:
+            - "8001:8000"
+        command: /start.sh
     
     postgres:
         build:
@@ -50,33 +53,22 @@ services:
             - fundflowhub_prod_nw
     
     celeryworker:
-        <<: *api
+        <<: *base
         command: /start-celeryworker.sh
-        
+
     flower:
-        <<: *api
+        <<: *base
         ports:
             - "5555:5555"
         volumes:
-            - flower_db:/app/flower_db
-        command: /start-flower.sh
-    
-    celerybeat:
-        build:
-            context: .
-            dockerfile: ./docker/production/django/Dockerfile
-        command: /start-celerybeat.sh
-        volumes:
             - ./staticfiles:/app/staticfiles
             - app_logs:/app/logs
-        env_file:
-            - ./.envs/.env.production
-        depends_on:
-            - redis
-            - postgres
-            - rabbitmq
-        networks:
-            - fundflowhub_prod_nw
+            - flower_db:/app/flower_db
+        command: /start-flower.sh
+
+    celerybeat:
+        <<: *base
+        command: /start-celerybeat.sh
 
     # nginx handled by host Nginx (shared with other VPS sites)
 
