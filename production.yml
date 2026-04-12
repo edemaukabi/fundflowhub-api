@@ -6,8 +6,8 @@ services:
         volumes:
             - static_volume:/app/staticfiles
             - app_logs:/app/logs
-        expose:
-            - "8000"
+        ports:
+            - "8001:8000"
         env_file:
             - ./.envs/.env.production
         depends_on:
@@ -78,23 +78,7 @@ services:
         networks:
             - fundflowhub_prod_nw
     
-    nginx:
-        build:
-            context: ./docker/production/nginx
-            dockerfile: Dockerfile
-        restart: always
-        ports:
-            - "80:80"
-            - "443:443"
-        volumes:
-            - ./docker/production/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-            - /etc/letsencrypt:/etc/letsencrypt:ro
-            - static_volume:/app/staticfiles
-            - logs_store:/var/log/nginx
-        depends_on:
-            - api
-        networks:
-            - fundflowhub_prod_nw
+    # nginx handled by host Nginx (shared with other VPS sites)
 
 networks:
     fundflowhub_prod_nw:
@@ -104,7 +88,6 @@ volumes:
     fundflowhub_prod_db:
     static_volume:
     app_logs:
-    logs_store:
     rabbitmq_data:
     rabbitmq_log:
     flower_db:
