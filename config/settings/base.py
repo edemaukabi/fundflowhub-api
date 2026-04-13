@@ -201,6 +201,11 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "FundFlowHub — a secure, multi-role banking platform API for accounts, transactions, virtual cards, and KYC.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "CONTACT": {
+        "name": "Edema Ukabi",
+        "url": "https://edemaukabi.dev",
+        "email": "edemacode@gmail.com",
+    },
     "LICENSE": {
         "name": "MIT License",
         "url": "https://opensource.org/license/mit",
