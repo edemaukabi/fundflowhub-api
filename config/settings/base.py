@@ -198,7 +198,7 @@ DJOSER = {
 }
 SPECTACULAR_SETTINGS = {
     "TITLE": "FundFlowHub API",
-    "DESCRIPTION": "FundFlowHub — a secure, multi-role banking platform API for accounts, transactions, virtual cards, and KYC.",
+    "DESCRIPTION": "FundFlowHub — a secure, multi-role banking platform API for accounts, transactions, virtual cards, and KYC.\n\nBuilt by [Edema Ukabi](https://edemaukabi.dev)",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "CONTACT": {
