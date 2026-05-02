@@ -1,7 +1,11 @@
+import threading
 from typing import Any, Optional
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from djoser.views import TokenCreateView
 from djoser.views import User
 from loguru import logger
@@ -12,7 +16,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .emails import send_otp_email
+from .emails import send_otp_email, send_password_reset_email
 from .utils import generate_otp
 
 User = get_user_model()
@@ -195,3 +199,57 @@ class LogoutAPIView(APIView):
         response.delete_cookie("refresh")
         response.delete_cookie("logged_in")
         return response
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email", "").strip().lower()
+        if not email:
+            return Response({"detail": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(email=email, is_active=True).first()
+        if user:
+            token_generator = PasswordResetTokenGenerator()
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = token_generator.make_token(user)
+            reset_url = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+            threading.Thread(
+                target=send_password_reset_email, args=(email, reset_url), daemon=True
+            ).start()
+            logger.info(f"Password reset email queued for: {email}")
+
+        return Response(
+            {"detail": "If an account with that email exists, a reset link has been sent."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        uid = request.data.get("uid")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password", "")
+
+        if not all([uid, token, new_password]):
+            return Response({"error": "uid, token, and new_password are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(new_password) < 8:
+            return Response({"error": "Password must be at least 8 characters."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user_pk = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_pk)
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({"error": "Invalid reset link."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not PasswordResetTokenGenerator().check_token(user, token):
+            return Response({"error": "This reset link has expired or is invalid."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        logger.info(f"Password reset successful for: {user.email}")
+        return Response({"detail": "Password updated successfully."}, status=status.HTTP_200_OK)
