@@ -248,6 +248,9 @@ cloudinary.config(
     api_secret=CLOUDINARY_API_SECRET,
 )
 
+FRONTEND_URL = getenv("FRONTEND_URL", "http://localhost:5173")
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
+
 COOKIE_NAME = "access"
 
 COOKIE_SAMESITE = "Lax"
