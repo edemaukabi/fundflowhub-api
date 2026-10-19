@@ -17,11 +17,13 @@ services:
 
     api:
         <<: *base
+        restart: unless-stopped
         ports:
             - "8001:8000"
         command: /start.sh
     
     postgres:
+        restart: unless-stopped
         build:
             context: .
             dockerfile: ./docker/production/postgres/Dockerfile
@@ -37,12 +39,14 @@ services:
     
     redis:
         image: redis:7.0-alpine3.19
+        restart: unless-stopped
         command: redis-server --appendonly yes
         networks:
             - fundflowhub_prod_nw
     
     rabbitmq:
         image: rabbitmq:3-management
+        restart: unless-stopped
         ports:
             - "5672:5672"
             - "15672:15672"
@@ -54,10 +58,12 @@ services:
     
     celeryworker:
         <<: *base
+        restart: unless-stopped
         command: /start-celeryworker.sh
 
     flower:
         <<: *base
+        restart: unless-stopped
         ports:
             - "5555:5555"
         volumes:
@@ -68,6 +74,7 @@ services:
 
     celerybeat:
         <<: *base
+        restart: unless-stopped
         command: /start-celerybeat.sh
 
     # nginx handled by host Nginx (shared with other VPS sites)
